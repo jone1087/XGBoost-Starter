@@ -1,6 +1,9 @@
 # Titanic Data Set starter code
 # taken and adapted from https://github.com/avinavneer/XGBoost-Starter
 
+# live link for R code and data:
+# https://github.com/jone1087/XGBoost-Starter/blob/master/Titanic XGBoost.R
+
 # remove objects
 rm(list = ls())
 options(stringAsFactors = FALSE)
