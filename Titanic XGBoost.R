@@ -1,5 +1,19 @@
-# Project from scratch- Titanic 
+# Titanic Data Set starter code
+# taken and adapted from https://github.com/avinavneer/XGBoost-Starter
 
+# remove objects
+rm(list = ls())
+options(stringAsFactors = FALSE)
+
+# Install Packages if you don't have them...
+# install.packages("dplyr")
+# install.packages("rpart")
+# install.packages("randomForest")
+# install.packages("e1071")
+# install.packages("xgboost")
+# install.packages("caret")
+
+# call packages for this session
 library(dplyr)
 library(rpart)
 library(randomForest)
@@ -7,92 +21,89 @@ library(e1071)
 library(xgboost)
 library(caret)
 
-rm(list=ls())
-
-setwd("C://Users/Avinav/Desktop/Data Science/Kaggle/Titanic")
+# set directory where the files you will be reading in are stored
+# and where files you write will be saved to
+setwd("~/Desktop/Projects/Active/SIOP 2018/ML R Tutorial/XGBoost-Starter")
 
 # Combining data sets
-train = read.csv("train.csv")
-test = read.csv("test.csv")
-test$Survived = 0
-data = rbind(train,test)
+train <- read.csv("Data/train.csv")
+test  <- read.csv("Data/test.csv")
+
+# test data does not have 'Survived' variable; we will create one so we
+# can combine the two data sets into on
+test$Survived <- NA
+data  <- rbind(train, test)
 str(data)
 
-# train$Survived = as.factor(train$Survived)
+# make PClass a factor
+data$Pclass <- as.factor(data$Pclass)
 
-data$Survived = as.factor(data$Survived)
-data$Pclass = as.factor(data$Pclass)
-
+# check for Missing Values
 colSums(is.na(data))
+table(data[, 'Embarked'])
 
 # Imputing common values in rows missing Fare and Embarked values 
-data$Fare[is.na(data$Fare)] = median(data$Fare,na.rm = TRUE)
-data$Embarked[data$Embarked==''] = 'S'
+# only a couple values are missing from these two columns so it makes 
+# sense to use a basic imputation
+data$Fare[is.na(data$Fare)]        <- median(data$Fare, na.rm = TRUE)
+data$Embarked[data$Embarked == ''] <- 'S'
 
-
-data_1 = data %>%
-  filter(!is.na(Age))
+# create a dataset for rows that include a value for age
+data_1 <- data[!is.na(data$Age), ]
 
 # Creating a decision tree for predicting the missing values of the Age variable
-
-age_model = rpart(Age~SibSp+Parch+Pclass, data_1)
-data$Age[is.na(data$Age)] = predict(age_model,newdata = data[is.na(data$Age),])
-
-# Splitting into Training and Test sets
-train = data[1:891,]
-test = data[892:1309,-2]
+age_model <- rpart(Age ~ SibSp + Parch + Pclass, data_1)
+data$Age[is.na(data$Age)] <- predict(age_model, newdata = data[is.na(data$Age), ])
 
 
-# Running a Random Forest model
-set.seed(1)
-model_rf = randomForest(Survived~Pclass+Sex+Age+SibSp+Parch+
-                        Fare+Embarked,data = train,mtry=3,ntree=500)
-
-model_rf
-varImpPlot(model_rf)
-attributes(model_rf)
-model_rf$importance
-model_rf$mtry
-model_rf$ntree
-survival_pred = predict(model_rf,newdata = test)
-table(survival_pred)
-
-
-# Running an XG Boost Model
-names(train)
-data.xg = train[,c(3,5,6,7,8,10,12)]
-label.xg = train[,"Survived"]
-
-names(test)
-test.data.xg = test[,c(2,4,5,6,7,9,11)]
-
+# Pick some predictor variables/features to use 
 # Using the dummyVars function of the caret package for One Hot Encoding 
-dummy.train = dummyVars(~Pclass+Sex+Embarked, data = data.xg)
-dummy.train
-data.train <- predict(dummy.train,data.xg)
+dummy_train <- dummyVars(~ Pclass + Sex + Embarked, data = data)
+data_train  <- predict(dummy_train, newdata = data); head(data_train)
 
-train.set = cbind(data.xg,data.train)
-names(train.set)
-train.set <- train.set[,c(3,4,5,6,8:16)]
-train.set <- as.matrix(train.set)
+# create the predictor set that you will use - needs to be a matrix for xgboost
+predictor_set <- cbind(data[, c('Age', 'SibSp', 'Parch', 'Fare')], data_train)
+train_pred    <- as.matrix(predictor_set[1:891, ])
+train_label   <- train[, "Survived"]; head(train_label)
+test_pred     <- predictor_set[892:1309, ]
 
-dummy.test = dummyVars(~Pclass+Sex+Embarked, data = test.data.xg)
-dummy.test
-data.test <- predict(dummy.test,test.data.xg)
-test.set = cbind(test.data.xg,data.test)
-names(test.set)
-test.set <- test.set[,c(3,4,5,6,8:16)]
-test.set <- as.matrix(test.set)
 
-# XGBoost model with the specified hyper parameters 
+# Cross validation!
+xgb_matrix   <- xgb.DMatrix(train_pred, label = train_label)
+xgb_cv_mod_1 <- xgb.cv(data      = xgb_matrix, 
+                       max_depth = 20,
+                       eta       = 0.01,
+                       nrounds   = 100,
+                       nfold     = 10,
+                       objective = 'binary:logistic',
+                       metrics   = 'auc',
+                       verbose   = 0)
 
-xgb.model = xgboost(data = train.set, label = as.matrix(label.xg),max_depth=20, 
-                    nrounds = 500, eta = 0.01, verbose = 1, 
-                    objective = "binary:logistic",eval_metric ="auc" )
+# do more cross-validation with different parameter combinations to 
+# see what happens to the AUC; also do cross-validation when adding/testing
+# new features
 
-xgb.model
-survival_pred = predict(xgb.model,newdata = test.set)
-prediction = as.numeric(survival_pred>0.5)
-table(prediction)
+# After doing a cross-validation to tune the parameters, now we actually
+# build the model on the full data set
+xgb_mod <- xgboost(data        = xgb_matrix,
+                   max_depth   = 20,
+                   eta         = 0.01,
+                   nrounds     = 100,
+                   objective   = 'binary:logistic',
+                   eval_metric = 'auc',
+                   verbose     = 0)
+
+# make predictions on the test data
+xgb_matrix_test <- xgb.DMatrix(as.matrix(test_pred))
+predict_probs   <- predict(xgb_mod, newdata = xgb_matrix_test)
+predict_01      <- as.numeric(predict_probs > 0.5)
+table(predict_01)
+
+# save out a file to upload to kaggle!
+write.csv(x         = data.frame(PassengerId = test$PassengerId,
+                                 Survived    = predict_01),
+          file      = paste0('TeamSIOP_Submission_1_', 
+                              format(Sys.time(), "%m%d%Y", '.csv')),
+          row.names = FALSE)
 
 
