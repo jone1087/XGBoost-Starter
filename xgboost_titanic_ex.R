@@ -105,7 +105,7 @@ table(predict_01)
 # save out a file to upload to kaggle!
 write.csv(x         = data.frame(PassengerId = test$PassengerId,
                                  Survived    = predict_01),
-          file      = paste0('TeamSIOP_Submission_1_', 
+          file      = paste0('MyTeam_Submission_1_', 
                               format(Sys.time(), "%m%d%Y", '.csv')),
           row.names = FALSE)
 
