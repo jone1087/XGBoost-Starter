@@ -35,7 +35,7 @@ train <- read.csv("Data/train.csv")
 test  <- read.csv("Data/test.csv")
 
 # test data does not have 'Survived' variable; we will create one so we
-# can combine the two data sets into on
+# can combine the two data sets into one
 test$Survived <- NA
 data  <- rbind(train, test)
 str(data)
