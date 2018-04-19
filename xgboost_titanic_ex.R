@@ -2,7 +2,9 @@
 # taken and adapted from https://github.com/avinavneer/XGBoost-Starter
 
 # live link for R code and data:
-# https://github.com/jone1087/XGBoost-Starter/blob/master/Titanic XGBoost.R
+# https://github.com/jone1087/XGBoost-Starter/blob/master/xgboost_titanic_ex.R
+# https://github.com/jone1087/XGBoost-Starter/tree/master/Data
+
 
 # remove objects
 rm(list = ls())
